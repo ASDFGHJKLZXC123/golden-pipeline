@@ -37,3 +37,31 @@ on:
       would-fail:
         description: "true when gate violations exist, regardless of enforce"
         value: ${{ jobs.policy-gate.outputs.would-fail }}
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep@sha256:c98f8829eea377274ee4b10656458b078b88232469b2ff913f091c2317347c9d # 1.170.0; registry packs remain mutable
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Run Semgrep
+        run: |
+          git config --global --add safe.directory "$PWD"
+          cfg=""
+          for config in ${{ inputs.semgrep-config }}; do
+            cfg="$cfg --config $config"
+          done
+          semgrep scan $cfg --sarif --output semgrep.sarif ${{ inputs.scan-path }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-semgrep
+          path: semgrep.sarif
+          if-no-files-found: error
+      - uses: github/codeql-action/upload-sarif@b7351df727350dca84cb9d725d57dcf5bc82ba26 # v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: golden-sast
