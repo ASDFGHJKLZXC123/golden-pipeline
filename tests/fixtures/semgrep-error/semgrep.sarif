@@ -1,0 +1,1 @@
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep"}},"results":[{"ruleId":"python.lang.security.audit.subprocess-shell-true","level":"error","locations":[{"physicalLocation":{"artifactLocation":{"uri":"fixture/app.py"}}}]}]}]}

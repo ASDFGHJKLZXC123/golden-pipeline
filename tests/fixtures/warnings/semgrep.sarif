@@ -1,0 +1,1 @@
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep"}},"results":[{"ruleId":"synthetic.warning","level":"warning","locations":[{"physicalLocation":{"artifactLocation":{"uri":"fixture/app.py"}}}]}]}]}

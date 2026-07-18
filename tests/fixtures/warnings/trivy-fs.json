@@ -1,0 +1,1 @@
+{"SchemaVersion":2,"Results":[{"Target":"fixture","Vulnerabilities":[{"VulnerabilityID":"CVE-SYNTHETIC-0003","Severity":"MEDIUM","FixedVersion":"1.2"},{"VulnerabilityID":"CVE-SYNTHETIC-0004","Severity":"HIGH","FixedVersion":""}],"Misconfigurations":[{"ID":"DS-SYNTHETIC-0001","Severity":"HIGH"}]}]}

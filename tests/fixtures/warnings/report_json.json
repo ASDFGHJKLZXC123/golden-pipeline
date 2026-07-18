@@ -1,0 +1,1 @@
+{"@version":"2.15.0","site":[{"@name":"http://fixture","alerts":[{"pluginid":"100001","alert":"Synthetic Medium","riskcode":"2"},{"pluginid":"100002","alert":"Synthetic Low","riskcode":"1"}]}]}
