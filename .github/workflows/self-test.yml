@@ -43,7 +43,7 @@ jobs:
       enforce: false
       scan-path: fixture
       docker-context: fixture
-      image-name: ghcr.io/ASDFGHJKLZXC123/golden-pipeline-fixture
+      image-name: ghcr.io/asdfghjklzxc123/golden-pipeline-fixture
       dast-url: http://localhost:8080
       compose-file: fixture/docker-compose.yml
 
