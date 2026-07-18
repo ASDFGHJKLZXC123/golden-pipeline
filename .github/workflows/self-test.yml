@@ -1,0 +1,38 @@
+name: self-test
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  security-events: write
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - run: python3 -m unittest discover -s tests -v
+      - name: Prove evaluator exit-code contract
+        run: |
+          set +e
+          python3 scripts/evaluate_gates.py --reports-dir tests/fixtures/all-violations --expected semgrep,gitleaks,trivy-fs --enforce
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+
+          set +e
+          python3 scripts/evaluate_gates.py --reports-dir tests/fixtures/clean --expected semgrep,gitleaks,trivy-fs --enforce
+          rc=$?
+          set -e
+          test "$rc" -eq 0
+
+          set +e
+          python3 scripts/evaluate_gates.py --reports-dir tests/fixtures/missing-report --expected semgrep,gitleaks,trivy-fs
+          rc=$?
+          set -e
+          test "$rc" -eq 2

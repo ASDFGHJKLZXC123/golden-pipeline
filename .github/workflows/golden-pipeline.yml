@@ -1,0 +1,39 @@
+name: golden-pipeline
+
+on:
+  workflow_call:
+    inputs:
+      enforce:
+        type: boolean
+        default: false
+      scan-path:
+        type: string
+        default: "."
+      docker-context:
+        type: string
+        default: "."
+      dockerfile:
+        type: string
+        default: "Dockerfile"
+      semgrep-config:
+        type: string
+        default: "p/security-audit p/owasp-top-ten"
+      image-name:
+        type: string
+        default: ""
+      enable-dast:
+        type: boolean
+        default: true
+      dast-url:
+        type: string
+        default: ""
+      compose-file:
+        type: string
+        default: "docker-compose.yml"
+      zap-rules-file:
+        type: string
+        default: ".zap/rules.tsv"
+    outputs:
+      would-fail:
+        description: "true when gate violations exist, regardless of enforce"
+        value: ${{ jobs.policy-gate.outputs.would-fail }}
