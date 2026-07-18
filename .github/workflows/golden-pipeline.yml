@@ -60,7 +60,7 @@ jobs:
           name: report-semgrep
           path: semgrep.sarif
           if-no-files-found: error
-      - uses: github/codeql-action/upload-sarif@b7351df727350dca84cb9d725d57dcf5bc82ba26 # v3
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
         if: always()
         with:
           sarif_file: semgrep.sarif
@@ -114,7 +114,7 @@ jobs:
           name: report-trivy-fs
           path: trivy-fs.json
           if-no-files-found: error
-      - uses: github/codeql-action/upload-sarif@b7351df727350dca84cb9d725d57dcf5bc82ba26 # v3
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
         if: always()
         with:
           sarif_file: trivy-fs.sarif
@@ -165,7 +165,7 @@ jobs:
           name: report-trivy-image
           path: trivy-image.json
           if-no-files-found: error
-      - uses: github/codeql-action/upload-sarif@b7351df727350dca84cb9d725d57dcf5bc82ba26 # v3
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
         if: always()
         with:
           sarif_file: trivy-image.sarif
