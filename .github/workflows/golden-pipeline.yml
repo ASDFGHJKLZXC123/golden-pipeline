@@ -1,0 +1,252 @@
+name: golden-pipeline
+
+on:
+  workflow_call:
+    inputs:
+      enforce:
+        type: boolean
+        default: false
+      scan-path:
+        type: string
+        default: "."
+      docker-context:
+        type: string
+        default: "."
+      dockerfile:
+        type: string
+        default: "Dockerfile"
+      semgrep-config:
+        type: string
+        default: "p/security-audit p/owasp-top-ten"
+      image-name:
+        type: string
+        default: ""
+      enable-dast:
+        type: boolean
+        default: true
+      dast-url:
+        type: string
+        default: ""
+      compose-file:
+        type: string
+        default: "docker-compose.yml"
+      zap-rules-file:
+        type: string
+        default: ".zap/rules.tsv"
+    outputs:
+      would-fail:
+        description: "true when gate violations exist, regardless of enforce"
+        value: ${{ jobs.policy-gate.outputs.would-fail }}
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep@sha256:c98f8829eea377274ee4b10656458b078b88232469b2ff913f091c2317347c9d # 1.170.0; registry packs remain mutable
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Run Semgrep
+        run: |
+          git config --global --add safe.directory "$PWD"
+          cfg=""
+          for config in ${{ inputs.semgrep-config }}; do
+            cfg="$cfg --config $config"
+          done
+          semgrep scan $cfg --sarif --output semgrep.sarif ${{ inputs.scan-path }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-semgrep
+          path: semgrep.sarif
+          if-no-files-found: error
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: golden-sast
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --report-format json --report-path /repo/gitleaks.json \
+            ${{ github.event_name == 'pull_request' && format('--log-opts origin/{0}..HEAD', github.base_ref) || '' }} \
+            --redact=100 --exit-code 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-gitleaks
+          path: gitleaks.json
+          if-no-files-found: error
+
+  trivy-fs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.scan-path }}
+          scanners: vuln,misconfig
+          ignore-unfixed: true
+          format: json
+          output: trivy-fs.json
+          exit-code: "0"
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ inputs.scan-path }}
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "0"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-trivy-fs
+          path: trivy-fs.json
+          if-no-files-found: error
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: golden-deps
+
+  build-image:
+    if: inputs.image-name != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: push
+        with:
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.docker-context }}/${{ inputs.dockerfile }}
+          tags: ${{ inputs.image-name }}:${{ github.sha }}
+          push: ${{ github.ref == 'refs/heads/main' }}
+          load: ${{ github.ref != 'refs/heads/main' }}
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ inputs.image-name }}:${{ github.sha }}
+          ignore-unfixed: true
+          format: json
+          output: trivy-image.json
+          exit-code: "0"
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ inputs.image-name }}:${{ github.sha }}
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-trivy-image
+          path: trivy-image.json
+          if-no-files-found: error
+      - uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: golden-container
+
+  zap-baseline:
+    if: inputs.enable-dast && inputs.dast-url != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Start fixture application
+        run: docker compose -f ${{ inputs.compose-file }} up -d --wait --wait-timeout 120
+      - uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: ${{ inputs.dast-url }}
+          docker_name: ghcr.io/zaproxy/zaproxy@sha256:8d387b1a63e3425beef4846e39719f5af2a787753af2d8b6558c6257d7a577a2 # 2.17.0
+          rules_file_name: ${{ inputs.zap-rules-file }}
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: report-zap
+      - name: Stop fixture application
+        if: always()
+        run: docker compose -f ${{ inputs.compose-file }} down -v
+
+  policy-gate:
+    needs: [semgrep, gitleaks, trivy-fs, build-image, zap-baseline]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      would-fail: ${{ steps.gate.outputs.would_fail }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: report-*
+          path: reports
+          merge-multiple: true
+      - name: Evaluate policy
+        id: gate
+        run: |
+          expected="semgrep,gitleaks,trivy-fs"
+          [ -n "${{ inputs.image-name }}" ] && expected="$expected,trivy-image"
+          { ${{ inputs.enable-dast }} && [ -n "${{ inputs.dast-url }}" ]; } && expected="$expected,zap"
+          python3 scripts/evaluate_gates.py \
+            --reports-dir reports --expected "$expected" \
+            ${{ inputs.enforce && '--enforce' || '' }} \
+            --summary-out "$GITHUB_STEP_SUMMARY" --github-output
+
+  supply-chain:
+    if: inputs.image-name != '' && github.ref == 'refs/heads/main'
+    needs: [build-image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ${{ inputs.image-name }}@${{ needs.build-image.outputs.digest }}
+    steps:
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.IMAGE }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign image
+        run: cosign sign --yes "$IMAGE"
+      - name: Attest SBOM with cosign
+        run: cosign attest --yes --predicate sbom.cdx.json --type cyclonedx "$IMAGE"
+      - uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-name: ${{ inputs.image-name }}
+          subject-digest: ${{ needs.build-image.outputs.digest }}
+          push-to-registry: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
