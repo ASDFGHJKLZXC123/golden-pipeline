@@ -36,3 +36,36 @@ jobs:
           rc=$?
           set -e
           test "$rc" -eq 2
+
+  integration:
+    uses: ./.github/workflows/golden-pipeline.yml
+    with:
+      enforce: false
+      scan-path: fixture
+      docker-context: fixture
+      image-name: ghcr.io/ASDFGHJKLZXC123/golden-pipeline-fixture
+      dast-url: http://localhost:8080
+      compose-file: fixture/docker-compose.yml
+
+  assert:
+    needs: [unit-tests, integration]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Assert report-only verdict
+        run: test "${{ needs.integration.outputs.would-fail }}" = "true"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: report-*
+          path: reports
+          merge-multiple: true
+      - name: Prove enforcing verdict on real reports
+        run: |
+          set +e
+          python3 scripts/evaluate_gates.py --reports-dir reports \
+            --expected semgrep,gitleaks,trivy-fs,trivy-image,zap --enforce
+          rc=$?
+          set -e
+          test "$rc" -eq 1
