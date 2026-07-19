@@ -4,7 +4,6 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-FAKE_AWS_KEY = "AKIAQ7W2T5M3N6J4LZ2P"
 
 
 @app.route('/health')
