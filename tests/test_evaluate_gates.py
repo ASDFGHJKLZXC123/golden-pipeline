@@ -47,8 +47,69 @@ class EvaluatorCommandTests(unittest.TestCase):
         self.assertIn("would_fail=true", report_output)
         self.assertIn("would_fail=true", enforce_output)
 
+    def assert_fail_closed(self, fixture):
+        for enforce in (False, True):
+            with self.subTest(fixture=fixture, enforce=enforce):
+                result, github_output, summary = self.run_evaluator(
+                    fixture, "semgrep", enforce=enforce
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(github_output, "")
+                self.assertEqual(summary, "")
+                self.assertIn("Golden Pipeline infrastructure error", result.stderr)
+
     def test_semgrep_error_trips_gate_alone(self):
         self.assert_gate_trip("semgrep-error", "semgrep")
+
+    def test_semgrep_rule_table_warning_surfaces_without_failing(self):
+        for enforce in (False, True):
+            with self.subTest(enforce=enforce):
+                result, github_output, summary = self.run_evaluator(
+                    "warnings", "semgrep", enforce=enforce
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("would_fail=false", github_output)
+                self.assertIn("| semgrep | ERROR findings | 0 |", summary)
+                self.assertIn("| semgrep | warning findings | 1 |", summary)
+
+    def test_semgrep_informational_levels_remain_non_failing(self):
+        for enforce in (False, True):
+            with self.subTest(enforce=enforce):
+                result, github_output, summary = self.run_evaluator(
+                    "semgrep-informational", "semgrep", enforce=enforce
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("would_fail=false", github_output)
+                self.assertIn("| semgrep | ERROR findings | 0 |", summary)
+                self.assertIn("| semgrep | warning findings | 0 |", summary)
+
+    def test_semgrep_result_level_overrides_rule_default_deterministically(self):
+        report_only, report_output, report_summary = self.run_evaluator(
+            "semgrep-overrides", "semgrep", enforce=False
+        )
+        enforcing, enforce_output, enforce_summary = self.run_evaluator(
+            "semgrep-overrides", "semgrep", enforce=True
+        )
+
+        self.assertEqual(report_only.returncode, 0, report_only.stderr)
+        self.assertEqual(enforcing.returncode, 1, enforcing.stderr)
+        self.assertIn("would_fail=true", report_output)
+        self.assertIn("would_fail=true", enforce_output)
+        for summary in (report_summary, enforce_summary):
+            self.assertIn("| semgrep | ERROR findings | 1 |", summary)
+            self.assertIn("| semgrep | warning findings | 1 |", summary)
+
+    def test_semgrep_missing_or_malformed_severity_metadata_fails_closed(self):
+        for fixture in ("semgrep-missing-severity", "semgrep-invalid-result-level"):
+            self.assert_fail_closed(fixture)
+
+    def test_semgrep_absent_rule_or_malformed_rule_table_fails_closed(self):
+        for fixture in (
+            "semgrep-absent-rule",
+            "semgrep-invalid-rule",
+            "semgrep-malformed-rule-table",
+        ):
+            self.assert_fail_closed(fixture)
 
     def test_gitleaks_finding_trips_gate_alone(self):
         self.assert_gate_trip("gitleaks-finding", "gitleaks")

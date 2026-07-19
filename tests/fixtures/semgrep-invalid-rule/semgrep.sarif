@@ -1,0 +1,1 @@
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[{"id":7,"defaultConfiguration":{"level":"warning"}}]}},"results":[{"ruleId":"7"}]}]}

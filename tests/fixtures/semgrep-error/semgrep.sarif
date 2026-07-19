@@ -1,1 +1,1 @@
-{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep"}},"results":[{"ruleId":"python.lang.security.audit.subprocess-shell-true","level":"error","locations":[{"physicalLocation":{"artifactLocation":{"uri":"fixture/app.py"}}}]}]}]}
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[{"id":"python.lang.security.audit.subprocess-shell-true","defaultConfiguration":{"level":"error"}}]}},"results":[{"ruleId":"python.lang.security.audit.subprocess-shell-true","locations":[{"physicalLocation":{"artifactLocation":{"uri":"fixture/app.py"}}}]}]}]}

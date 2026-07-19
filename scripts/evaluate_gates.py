@@ -16,6 +16,7 @@ REPORT_FILES = {
     "trivy-image": "trivy-image.json",
     "zap": "report_json.json",
 }
+SARIF_LEVELS = {"none", "note", "warning", "error"}
 
 FAIL_ROWS = (
     ("gitleaks", "non-allowlisted findings"),
@@ -88,6 +89,14 @@ def require_list(value: Any, defect: str) -> List[Any]:
     return value
 
 
+def require_sarif_level(value: Any, location: str) -> str:
+    if not isinstance(value, str) or value not in SARIF_LEVELS:
+        raise EvaluationError(
+            "{} must be one of error, warning, note, or none".format(location)
+        )
+    return value
+
+
 def count_semgrep(document: Any) -> Tuple[Dict[Tuple[str, str], int], Dict[Tuple[str, str], int]]:
     root = require_mapping(document, "semgrep report must be a JSON object")
     runs = require_list(root.get("runs"), "semgrep report must contain runs[]")
@@ -96,6 +105,39 @@ def count_semgrep(document: Any) -> Tuple[Dict[Tuple[str, str], int], Dict[Tuple
 
     for run_number, run_value in enumerate(runs):
         run = require_mapping(run_value, "semgrep runs[{}] must be an object".format(run_number))
+        tool = require_mapping(
+            run.get("tool"), "semgrep runs[{}].tool must be an object".format(run_number)
+        )
+        driver = require_mapping(
+            tool.get("driver"),
+            "semgrep runs[{}].tool.driver must be an object".format(run_number),
+        )
+        rules = require_list(
+            driver.get("rules"),
+            "semgrep runs[{}].tool.driver must contain rules[]".format(run_number),
+        )
+        rule_levels: Dict[str, str] = {}
+        for rule_number, rule_value in enumerate(rules):
+            rule_location = "semgrep runs[{}].tool.driver.rules[{}]".format(
+                run_number, rule_number
+            )
+            rule = require_mapping(
+                rule_value, "{} must be an object".format(rule_location)
+            )
+            rule_id = rule.get("id")
+            if not isinstance(rule_id, str) or not rule_id.strip():
+                raise EvaluationError("{}.id must be a non-empty string".format(rule_location))
+            if rule_id in rule_levels:
+                raise EvaluationError("{} duplicates an earlier rule id".format(rule_location))
+            default_configuration = require_mapping(
+                rule.get("defaultConfiguration"),
+                "{}.defaultConfiguration must be an object".format(rule_location),
+            )
+            rule_levels[rule_id] = require_sarif_level(
+                default_configuration.get("level"),
+                "{}.defaultConfiguration.level".format(rule_location),
+            )
+
         results = require_list(
             run.get("results"), "semgrep runs[{}] must contain results[]".format(run_number)
         )
@@ -104,7 +146,21 @@ def count_semgrep(document: Any) -> Tuple[Dict[Tuple[str, str], int], Dict[Tuple
                 result_value,
                 "semgrep runs[{}].results[{}] must be an object".format(run_number, result_number),
             )
-            level = str(result.get("level", "")).lower()
+            result_location = "semgrep runs[{}].results[{}]".format(run_number, result_number)
+            rule_id = result.get("ruleId")
+            if not isinstance(rule_id, str) or not rule_id.strip():
+                raise EvaluationError(
+                    "{}.ruleId must be a non-empty string".format(result_location)
+                )
+            if rule_id not in rule_levels:
+                raise EvaluationError(
+                    "{} references a ruleId absent from driver rules".format(result_location)
+                )
+            level = rule_levels[rule_id]
+            if "level" in result:
+                level = require_sarif_level(
+                    result.get("level"), "{}.level".format(result_location)
+                )
             if level == "error":
                 failures[("semgrep", "ERROR findings")] += 1
             elif level == "warning":

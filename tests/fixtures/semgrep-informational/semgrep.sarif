@@ -1,0 +1,1 @@
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[{"id":"synthetic.note","defaultConfiguration":{"level":"note"}},{"id":"synthetic.none","defaultConfiguration":{"level":"none"}}]}},"results":[{"ruleId":"synthetic.note"},{"ruleId":"synthetic.none"}]}]}

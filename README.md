@@ -9,5 +9,5 @@ Pin the reusable workflow to a full commit SHA:
 ```yaml
 jobs:
   golden-pipeline:
-    uses: ASDFGHJKLZXC123/golden-pipeline/.github/workflows/golden-pipeline.yml@<FULL_SHA> # v1.0.0
+    uses: ASDFGHJKLZXC123/golden-pipeline/.github/workflows/golden-pipeline.yml@<FULL_SHA> # v1.0.1
 ```
