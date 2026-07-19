@@ -1,0 +1,1 @@
+{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Semgrep","rules":[{"id":"synthetic.missing-severity","defaultConfiguration":{}}]}},"results":[{"ruleId":"synthetic.missing-severity"}]}]}
