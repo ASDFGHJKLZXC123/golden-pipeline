@@ -4,8 +4,7 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# F1 fake AWS key (generated for testing only; no real credential).
-FAKE_AWS_KEY = "AKIAQ7W2T5M3N6J4LZ2P"
+FAKE_AWS_KEY = "f1-removed-for-negative-test"
 
 
 @app.route('/health')
