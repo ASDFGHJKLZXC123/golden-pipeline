@@ -202,6 +202,10 @@ jobs:
       would-fail: ${{ steps.gate.outputs.would_fail }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .golden-pipeline-tooling
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: report-*
@@ -213,7 +217,7 @@ jobs:
           expected="semgrep,gitleaks,trivy-fs"
           [ -n "${{ inputs.image-name }}" ] && expected="$expected,trivy-image"
           { ${{ inputs.enable-dast }} && [ -n "${{ inputs.dast-url }}" ]; } && expected="$expected,zap"
-          python3 scripts/evaluate_gates.py \
+          python3 .golden-pipeline-tooling/scripts/evaluate_gates.py \
             --reports-dir reports --expected "$expected" \
             ${{ inputs.enforce && '--enforce' || '' }} \
             --summary-out "$GITHUB_STEP_SUMMARY" --github-output
