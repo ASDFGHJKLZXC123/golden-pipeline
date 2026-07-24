@@ -55,7 +55,7 @@ jobs:
             cfg="$cfg --config $config"
           done
           semgrep scan $cfg --sarif --output semgrep.sarif ${{ inputs.scan-path }}
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-semgrep
           path: semgrep.sarif
@@ -80,7 +80,7 @@ jobs:
             git /repo --report-format json --report-path /repo/gitleaks.json \
             ${{ github.event_name == 'pull_request' && format('--log-opts origin/{0}..HEAD', github.base_ref) || '' }} \
             --redact=100 --exit-code 0
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-gitleaks
           path: gitleaks.json
@@ -109,7 +109,7 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           exit-code: "0"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-trivy-fs
           path: trivy-fs.json
@@ -160,7 +160,7 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           exit-code: "0"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-trivy-image
           path: trivy-image.json
@@ -254,7 +254,7 @@ jobs:
           subject-name: ${{ inputs.image-name }}
           subject-digest: ${{ needs.build-image.outputs.digest }}
           push-to-registry: true
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: report-sbom
           path: sbom.cdx.json
